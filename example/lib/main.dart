@@ -227,9 +227,8 @@ class _HomePageState extends State<HomePage> {
   /// This method searches for taggables based on the tag prefix and tag name.
   ///
   /// You can specify different behaviour based on the tag prefix.
-  Future<Iterable<Taggable>> searchTaggables(
-      String tagPrefix, String? tagName) async {
-    if (tagName == null || tagName.isEmpty) {
+  Future<Iterable<Taggable>> searchTaggables(String? tagPrefix, String? tagName) async {
+    if (tagPrefix == null || tagName == null || tagName.isEmpty) {
       return [];
     }
     return switch (tagPrefix) {

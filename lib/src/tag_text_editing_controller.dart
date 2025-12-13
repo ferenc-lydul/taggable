@@ -47,16 +47,12 @@ class TagTextEditingController<T> extends TextEditingController {
   void taggingListeners() {
     _checkTagRecognizabilityController();
     _cursorController();
-    final query = _checkTagQueryController();
-    if (query != null) {
-      _availableTaggablesController(query.$1, query.$2);
-    }
+    _availableTaggablesController();
     _updatePreviousCursorPosition();
   }
 
   /// Searches for taggables based on the tag prefix (e.g. '@') and query (e.g. 'Ali').
-  final FutureOr<Iterable<T>> Function(String prefix, String? query)
-      searchTaggables;
+  final FutureOr<Iterable<T>> Function(String? prefix, String? query) searchTaggables;
 
   /// Builds the list of taggables, if any.
   final Future<T?> Function(FutureOr<Iterable<T>> taggables) buildTaggables;
@@ -301,18 +297,20 @@ class TagTextEditingController<T> extends TextEditingController {
       // A range is selected, so no tag can be created
       return null;
     }
+
     final int currentPos = selection.baseOffset;
-    if (currentPos == -1) return null;
+    if (currentPos == -1) {
+      return null;
+    }
+
     // Get the last position of a tag prefix before the cursor
-    int tagStartPosition = text.substring(0, currentPos).lastIndexOf(
-          RegExp(tagStyles.map((style) => style.prefix).join('|')),
-        );
+    int tagStartPosition = text.substring(0, currentPos).lastIndexOf(RegExp(tagStyles.map((style) => style.prefix).join('|')));
     if (tagStartPosition == -1) {
       return null;
     }
+
     final query = text.substring(tagStartPosition, currentPos);
-    final tagStyle =
-        tagStyles.where((style) => query.startsWith(style.prefix)).first;
+    final tagStyle = tagStyles.where((style) => query.startsWith(style.prefix)).first;
     return (tagStyle.prefix, query.substring(tagStyle.prefix.length));
   }
 
@@ -388,11 +386,15 @@ class TagTextEditingController<T> extends TextEditingController {
   /// A listener that searches for taggables based on the current tag prompt.
   ///
   /// If taggable options are found, the user is prompted to select one.
-  void _availableTaggablesController(String prefix, String prompt) async {
+  void _availableTaggablesController() async {
+    final query = _checkTagQueryController();
+    final String? prefix = query?.$1;
+    final String? prompt = query?.$2;
     final taggables = searchTaggables(prefix, prompt);
     buildTaggables(taggables).then((taggable) {
-      if (taggable == null) return;
-      insertTaggable(prefix, taggable, prompt.length + prefix.length);
+      if (prefix != null && prompt != null && taggable != null) {
+        insertTaggable(prefix, taggable, prompt.length + prefix.length);
+      }
     });
   }
 
