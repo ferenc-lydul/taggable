@@ -86,6 +86,7 @@ class TagTextEditingController<T> extends TextEditingController {
   /// The text formatted in frontend format. Do not use `controller.text` directly.
   String get textInFrontendFormat {
     final pattern = tagStyles.map((style) => '${RegExp.escape(style.prefix)}(${style.regExp})').join('|');
+    final text = textInBackendFormat;
     final stringBuffer = StringBuffer();
     int position = 0;
 
@@ -116,6 +117,7 @@ class TagTextEditingController<T> extends TextEditingController {
   List<T> getTaggablesByPrefix(String prefix) {
     final tagStyle = tagStyles.firstWhere((el) => el.prefix == prefix);
     final String pattern = '${RegExp.escape(tagStyle.prefix)}(${tagStyle.regExp})';
+    final text = textInBackendFormat;
     final List<T> result = <T>[];
 
     for (final RegExpMatch match in RegExp(pattern).allMatches(text)) {
