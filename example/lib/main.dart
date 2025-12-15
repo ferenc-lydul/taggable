@@ -123,9 +123,9 @@ class _HomePageState extends State<HomePage> {
 
   /// This method is used to build the [InlineSpan]s from the backend format.
   FutureOr<List<InlineSpan>> _buildTextSpans(
-      String backendFormat,
-      BuildContext context,
-      ) async {
+    String backendFormat,
+    BuildContext context,
+  ) async {
     return convertTagTextToInlineSpans<Taggable>(
       backendFormat,
       tagStyles: _controller.tagStyles,
@@ -136,13 +136,13 @@ class _HomePageState extends State<HomePage> {
           style: textStyleBuilder(context, tagStyle.prefix, taggable),
           recognizer: TapGestureRecognizer()
             ..onTap = () => ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'Tapped ${taggable.name} with id ${taggable.id}',
+                  SnackBar(
+                    content: Text(
+                      'Tapped ${taggable.name} with id ${taggable.id}',
+                    ),
+                    duration: const Duration(seconds: 2),
+                  ),
                 ),
-                duration: const Duration(seconds: 2),
-              ),
-            ),
         );
       },
     );
@@ -306,8 +306,8 @@ class _HomePageState extends State<HomePage> {
                   // This is an example of setting the initial text.
                   _controller.setText(
                     "Hello @aliceUniqueId and @frankUniqueId, welcome to #myFlutterId!",
-                    backendToTaggable,
-                    (prefix, backendString) => '${prefix}Unknown',
+                    backendToTaggable: backendToTaggable,
+                    backendToFallback: (prefix, backendString) => '${prefix}Unknown',
                   );
                 },
                 child: const Text('Set initial text'),

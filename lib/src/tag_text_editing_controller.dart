@@ -137,12 +137,13 @@ class TagTextEditingController<T> extends TextEditingController {
   /// Sets the initial text of the text field, converting backend strings to taggables.
   ///
   /// The `backendToTaggable` function is used to convert backend strings to taggables.
+  /// The `backendToFallback` function is used to convert backend strings to fallback string.
   /// It has the 'FutureOr' signature to allow for asynchronous operations.
   void setText(
-    String backendText,
-    FutureOr<T?> Function(String prefix, String backendString) backendToTaggable,
-    FutureOr<String?> Function(String prefix, String backendString) backendToFallback,
-  ) async {
+    String backendText, {
+    required FutureOr<T?> Function(String prefix, String backendString) backendToTaggable,
+    required FutureOr<String?> Function(String prefix, String backendString) backendToFallback,
+  }) async {
     _tagBackendFormatsToTaggables.clear();
 
     final StringBuffer tmpText = StringBuffer();
