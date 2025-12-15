@@ -40,14 +40,10 @@ import 'utils/tag_style.dart';
 Future<List<InlineSpan>> convertTagTextToInlineSpans<T>(
   String text, {
   required List<TagStyle> tagStyles,
-  required FutureOr<T?> Function(String prefix, String backendString)
-      backendToTaggable,
-  required InlineSpan Function(T taggable, TagStyle tagStyle)
-      taggableToInlineSpan,
+  required FutureOr<T?> Function(String prefix, String backendString) backendToTaggable,
+  required InlineSpan Function(T taggable, TagStyle tagStyle) taggableToInlineSpan,
 }) async {
-  final pattern = tagStyles
-      .map((style) => '${RegExp.escape(style.prefix)}(${style.regExp})')
-      .join('|');
+  final pattern = tagStyles.map((style) => '${RegExp.escape(style.prefix)}(${style.regExp})').join('|');
   final spans = <InlineSpan>[];
   int position = 0;
 
@@ -70,8 +66,10 @@ Future<List<InlineSpan>> convertTagTextToInlineSpans<T>(
       spans.add(TextSpan(text: match.group(0)));
     }
   }
+
   if (text.substring(position).isNotEmpty) {
     spans.add(TextSpan(text: text.substring(position)));
   }
+
   return spans;
 }

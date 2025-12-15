@@ -13,13 +13,11 @@ class Taggable {
 }
 
 class User extends Taggable {
-  const User(
-      {required super.id, required super.name, super.icon = Icons.person});
+  const User({required super.id, required super.name, super.icon = Icons.person});
 }
 
 class Topic extends Taggable {
-  const Topic(
-      {required super.id, required super.name, super.icon = Icons.topic});
+  const Topic({required super.id, required super.name, super.icon = Icons.topic});
 }
 
 /// A list of users to search from.
@@ -78,14 +76,11 @@ class _HomePageState extends State<HomePage> {
 
   /// The [TagTextEditingController] is used to control the [TextField] and
   /// handle the tagging logic.
-  late final TagTextEditingController _controller;
+  late final TagTextEditingController<Taggable> _controller;
 
   /// The [_overlayEntry] is used to show the overlay with the list of
   /// taggables.
   OverlayEntry? _overlayEntry;
-
-  /// The [backendFormat] is used to display the backend format of the text
-  String backendFormat = '';
 
   @override
   void initState() {
@@ -101,10 +96,6 @@ class _HomePageState extends State<HomePage> {
       textStyleBuilder: textStyleBuilder,
       tagStyles: const [TagStyle(prefix: '@'), TagStyle(prefix: '#')],
     );
-
-    // Add a listener to update the [backendFormat] when the text changes.
-    _controller.addListener(
-        () => setState(() => backendFormat = _controller.textInBackendFormat));
   }
 
   @override
@@ -115,8 +106,7 @@ class _HomePageState extends State<HomePage> {
     super.dispose();
   }
 
-  TextStyle? textStyleBuilder(
-      BuildContext context, String prefix, Taggable taggable) {
+  TextStyle? textStyleBuilder(BuildContext context, String prefix, Taggable taggable) {
     // if (taggable.id == 'hawkingUniqueId') {
     //   return const TextStyle(
     //     color: Colors.red,
@@ -125,21 +115,17 @@ class _HomePageState extends State<HomePage> {
     //   );
     // }
     return switch (prefix) {
-      '@' => TextStyle(
-          color: Theme.of(context).colorScheme.primary,
-          fontWeight: FontWeight.bold),
-      '#' => TextStyle(
-          color: Theme.of(context).colorScheme.secondary,
-          fontWeight: FontWeight.bold),
+      '@' => TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold),
+      '#' => TextStyle(color: Theme.of(context).colorScheme.secondary, fontWeight: FontWeight.bold),
       _ => null,
     };
   }
 
   /// This method is used to build the [InlineSpan]s from the backend format.
   FutureOr<List<InlineSpan>> _buildTextSpans(
-    String backendFormat,
-    BuildContext context,
-  ) async {
+      String backendFormat,
+      BuildContext context,
+      ) async {
     return convertTagTextToInlineSpans<Taggable>(
       backendFormat,
       tagStyles: _controller.tagStyles,
@@ -150,21 +136,20 @@ class _HomePageState extends State<HomePage> {
           style: textStyleBuilder(context, tagStyle.prefix, taggable),
           recognizer: TapGestureRecognizer()
             ..onTap = () => ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      'Tapped ${taggable.name} with id ${taggable.id}',
-                    ),
-                    duration: const Duration(seconds: 2),
-                  ),
+              SnackBar(
+                content: Text(
+                  'Tapped ${taggable.name} with id ${taggable.id}',
                 ),
+                duration: const Duration(seconds: 2),
+              ),
+            ),
         );
       },
     );
   }
 
   /// Shows the overlay with the list of taggables.
-  Future<Taggable?> buildTaggables(
-      FutureOr<Iterable<Taggable>> taggables) async {
+  Future<Taggable?> buildTaggables(FutureOr<Iterable<Taggable>> taggables) async {
     final availableTaggables = await taggables;
 
     // We use a [Completer] to return the selected taggable from the overlay.
@@ -181,8 +166,7 @@ class _HomePageState extends State<HomePage> {
       _overlayEntry = OverlayEntry(builder: (context) {
         // The following few lines are used to position the overlay above the
         // [TextField]. It moves along if the [TextField] moves.
-        final renderBox =
-            _formKey.currentContext!.findRenderObject() as RenderBox;
+        final renderBox = _formKey.currentContext!.findRenderObject() as RenderBox;
         return Positioned(
           width: renderBox.size.width,
           bottom: renderBox.size.height + 8,
@@ -232,16 +216,9 @@ class _HomePageState extends State<HomePage> {
       return [];
     }
     return switch (tagPrefix) {
-      '@' => users
-          .where((user) =>
-              user.name.toLowerCase().startsWith(tagName.toLowerCase()))
-          .toList(),
-      '#' => topics
-          .where((topic) =>
-              topic.name.toLowerCase().startsWith(tagName.toLowerCase()))
-          .toList(),
-      'all:' => [...users, ...topics].where((taggable) =>
-          taggable.name.toLowerCase().startsWith(tagName.toLowerCase())),
+      '@' => users.where((user) => user.name.toLowerCase().startsWith(tagName.toLowerCase())).toList(),
+      '#' => topics.where((topic) => topic.name.toLowerCase().startsWith(tagName.toLowerCase())).toList(),
+      'all:' => [...users, ...topics].where((taggable) => taggable.name.toLowerCase().startsWith(tagName.toLowerCase())),
       _ => [],
     };
   }
@@ -251,9 +228,7 @@ class _HomePageState extends State<HomePage> {
     return switch (prefix) {
       '@' => users.where((user) => user.id == id).firstOrNull,
       '#' => topics.where((topic) => topic.id == id).firstOrNull,
-      'all:' => [...users, ...topics]
-          .where((taggable) => taggable.id == id)
-          .firstOrNull,
+      'all:' => [...users, ...topics].where((taggable) => taggable.id == id).firstOrNull,
       _ => null,
     };
   }
@@ -269,8 +244,9 @@ class _HomePageState extends State<HomePage> {
         child: SizedBox(
           width: 600,
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            spacing: 20.0,
             children: [
               ...comments.map((comment) {
                 return Card(
@@ -292,15 +268,13 @@ class _HomePageState extends State<HomePage> {
                   child: TextField(
                     controller: _controller,
                     focusNode: _focusNode,
-                    maxLines: 4,
+                    maxLines: 3,
                     decoration: InputDecoration(
                       hintText: 'Type @ to tag a user or # to tag a topic',
-                      helperText: 'Backend format: $backendFormat',
                       suffixIcon: IconButton(
                         icon: const Icon(Icons.send),
                         onPressed: () async {
-                          final textSpans =
-                              await _buildTextSpans(_controller.text, context);
+                          final textSpans = await _buildTextSpans(_controller.text, context);
                           setState(() {
                             comments.add(textSpans);
                             _controller.clear();
@@ -311,7 +285,23 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
               ),
-              TextButton(
+              ValueListenableBuilder(
+                valueListenable: _controller,
+                builder: (context, _, __) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisSize: MainAxisSize.min,
+                    spacing: 10.0,
+                    children: [
+                      Text('Frontend: ${_controller.textInFrontendFormat.trim()}'),
+                      Text('Backend: ${_controller.textInBackendFormat.trim()}'),
+                      Text('Taggables (@): ${_controller.getTaggablesByPrefix('@').map((el) => el.name).join(', ')}'),
+                      Text('Taggables (#): ${_controller.getTaggablesByPrefix('#').map((el) => el.name).join(', ')}'),
+                    ],
+                  );
+                },
+              ),
+              OutlinedButton(
                 onPressed: () {
                   // This is an example of setting the initial text.
                   _controller.setText(

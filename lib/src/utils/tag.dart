@@ -27,12 +27,10 @@ class Tag<T> {
     final frontendString = toFrontendConverter(taggable);
     final backendString = toBackendConverter(taggable);
     if (isFrontend) {
-      final lengthDifference = (backendString.length - frontendString.length)
-          .clamp(0, backendString.length);
+      final lengthDifference = (backendString.length - frontendString.length).clamp(0, backendString.length);
       return '${spaceMarker * lengthDifference}${style.prefix}$frontendString';
     } else {
-      final lengthDifference = (frontendString.length - backendString.length)
-          .clamp(0, frontendString.length);
+      final lengthDifference = (frontendString.length - backendString.length).clamp(0, frontendString.length);
       return '${style.prefix}${spaceMarker * lengthDifference}$backendString';
     }
   }

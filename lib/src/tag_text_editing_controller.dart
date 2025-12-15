@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'constants/constants.dart';
-import 'utils/tag_style.dart';
 import 'utils/tag.dart';
+import 'utils/tag_style.dart';
 
 /// A controller for an editable text field that supports tagging behaviour.
 ///
@@ -23,17 +23,17 @@ class TagTextEditingController<T> extends TextEditingController {
   TagTextEditingController({
     required this.searchTaggables,
     required this.buildTaggables,
-    required this.toFrontendConverter,
     required this.toBackendConverter,
+    required this.toFrontendConverter,
     this.textStyleBuilder,
     this.tagStyles = const [TagStyle()],
   }) : super() {
-    addListener(taggingListeners);
+    addListener(_onChanged);
   }
 
   @override
   void dispose() {
-    removeListener(taggingListeners);
+    removeListener(_onChanged);
     super.dispose();
   }
 
@@ -44,7 +44,7 @@ class TagTextEditingController<T> extends TextEditingController {
   }
 
   /// A listener that triggers all tagging-related listeners.
-  void taggingListeners() {
+  void _onChanged() {
     _checkTagRecognizabilityController();
     _cursorController();
     _availableTaggablesController();
@@ -57,11 +57,11 @@ class TagTextEditingController<T> extends TextEditingController {
   /// Builds the list of taggables, if any.
   final Future<T?> Function(FutureOr<Iterable<T>> taggables) buildTaggables;
 
-  /// Converts a taggable to a string to display in the linked text field.
-  final String Function(T taggable) toFrontendConverter;
-
   /// Converts a taggable to a unique identifier for internal and backend use.
   final String Function(T taggable) toBackendConverter;
+
+  /// Converts a taggable to a string to display in the linked text field.
+  final String Function(T taggable) toFrontendConverter;
 
   /// A list of [TagStyle] styles that are supported by the controller.
   final List<TagStyle> tagStyles;
@@ -70,8 +70,7 @@ class TagTextEditingController<T> extends TextEditingController {
   ///
   /// If this function is not provided, the text style will be the same as the
   /// default text style of the text field.
-  final TextStyle? Function(BuildContext context, String prefix, T taggable)?
-      textStyleBuilder;
+  final TextStyle? Function(BuildContext context, String prefix, T taggable)? textStyleBuilder;
 
   /// A map that maps taggable backend formats to taggable objects.
   Map<String, T> _tagBackendFormatsToTaggables = {};
@@ -80,15 +79,59 @@ class TagTextEditingController<T> extends TextEditingController {
   int _previousCursorPosition = 0;
 
   /// The text formatted in backend format. Do not use `controller.text` directly.
-  String get textInBackendFormat => text.replaceAll(spaceMarker, '');
+  String get textInBackendFormat {
+    return text.replaceAll(spaceMarker, '');
+  }
+
+  /// The text formatted in frontend format. Do not use `controller.text` directly.
+  String get textInFrontendFormat {
+    final pattern = tagStyles.map((style) => '${RegExp.escape(style.prefix)}(${style.regExp})').join('|');
+    final stringBuffer = StringBuffer();
+    int position = 0;
+
+    for (final match in RegExp(pattern).allMatches(text)) {
+      final textBeforeTag = text.substring(position, match.start);
+      stringBuffer.write(textBeforeTag);
+      position = match.end;
+
+      final backendString = match.group(0) ?? '';
+      final tagStyle = tagStyles.firstWhere((style) => backendString.startsWith(style.prefix));
+      final taggable = _tagBackendFormatsToTaggables[backendString];
+
+      if (taggable != null) {
+        stringBuffer.write('${tagStyle.prefix}${toFrontendConverter(taggable)}');
+      } else {
+        stringBuffer.write(backendString);
+      }
+    }
+
+    if (text.substring(position).isNotEmpty) {
+      stringBuffer.write(text.substring(position));
+    }
+
+    return stringBuffer.toString();
+  }
+
+  /// Returns all matching tags by prefix.
+  List<T> getTaggablesByPrefix(String prefix) {
+    final tagStyle = tagStyles.firstWhere((el) => el.prefix == prefix);
+    final String pattern = '${RegExp.escape(tagStyle.prefix)}(${tagStyle.regExp})';
+    final List<T> result = <T>[];
+
+    for (final RegExpMatch match in RegExp(pattern).allMatches(text)) {
+      final taggable = _tagBackendFormatsToTaggables[match.group(0)];
+      if (taggable != null) {
+        result.add(taggable);
+      }
+    }
+
+    return result;
+  }
 
   /// Returns all matching tags in the text based on the tag styles.
-  Iterable<Match> _getTagMatches(String text) {
-    final pattern = tagStyles
-        .map((style) =>
-            '${RegExp.escape(style.prefix)}$spaceMarker*(${style.regExp})')
-        .join('|');
-    return RegExp(pattern).allMatches(text);
+  List<Match> _getTagMatches(String text) {
+    final pattern = tagStyles.map((style) => '${RegExp.escape(style.prefix)}$spaceMarker*(${style.regExp})').join('|');
+    return RegExp(pattern).allMatches(text).toList();
   }
 
   /// Sets the initial text of the text field, converting backend strings to taggables.
@@ -97,9 +140,10 @@ class TagTextEditingController<T> extends TextEditingController {
   /// It has the 'FutureOr' signature to allow for asynchronous operations.
   void setText(
     String backendText,
-    FutureOr<T?> Function(String prefix, String backendString)
-        backendToTaggable,
+    FutureOr<T?> Function(String prefix, String backendString) backendToTaggable,
   ) async {
+    _tagBackendFormatsToTaggables.clear();
+
     final StringBuffer tmpText = StringBuffer();
     int position = 0;
 
@@ -108,19 +152,18 @@ class TagTextEditingController<T> extends TextEditingController {
       tmpText.write(textBeforeMatch);
       position = match.end;
 
-      final tagStyle = tagStyles
-          .where((style) => match.group(0)!.startsWith(style.prefix))
-          .firstOrNull;
+      final tagStyle = tagStyles.where((style) => match.group(0)!.startsWith(style.prefix)).firstOrNull;
       if (tagStyle == null) {
         tmpText.write(match.group(0));
         continue;
       }
-      final taggable = await backendToTaggable(
-          tagStyle.prefix, match.group(0)!.substring(tagStyle.prefix.length));
+
+      final taggable = await backendToTaggable(tagStyle.prefix, match.group(0)!.substring(tagStyle.prefix.length));
       if (taggable == null) {
         tmpText.write(match.group(0));
         continue;
       }
+
       final tag = Tag<T>(taggable: taggable, style: tagStyle);
       final tagText = tag.toModifiedString(
         toFrontendConverter,
@@ -129,12 +172,10 @@ class TagTextEditingController<T> extends TextEditingController {
       );
 
       _tagBackendFormatsToTaggables[tagText] = taggable;
-
       tmpText.write(tagText);
     }
 
-    final textAfterAllTags =
-        backendText.substring(position, backendText.length);
+    final textAfterAllTags = backendText.substring(position, backendText.length);
     tmpText.write(textAfterAllTags);
 
     text = tmpText.toString().trimRight();
@@ -142,13 +183,16 @@ class TagTextEditingController<T> extends TextEditingController {
 
   /// Parses a tag string (e.g. "@tag") and returns a tag object.
   Tag<T>? _parseTagString(String tagString) {
-    final tagStyle = tagStyles
-        .where((style) => tagString.startsWith(style.prefix))
-        .firstOrNull;
+    final tagStyle = tagStyles.where((style) => tagString.startsWith(style.prefix)).firstOrNull;
     final taggable = _tagBackendFormatsToTaggables[tagString];
-    if (tagStyle == null || taggable == null) return null;
+    if (tagStyle == null || taggable == null) {
+      return null;
+    }
 
-    return Tag<T>(taggable: taggable, style: tagStyle);
+    return Tag<T>(
+      taggable: taggable,
+      style: tagStyle,
+    );
   }
 
   @override
@@ -171,15 +215,14 @@ class TagTextEditingController<T> extends TextEditingController {
         textSpanChildren.add(TextSpan(text: match.group(0)));
         continue;
       }
+
       final tagText = tag.toModifiedString(
         toFrontendConverter,
         toBackendConverter,
         isFrontend: true,
       );
+      final textStyle = textStyleBuilder?.call(context, tag.style.prefix, tag.taggable) ?? style;
 
-      final textStyle =
-          textStyleBuilder?.call(context, tag.style.prefix, tag.taggable) ??
-              style;
       // The Flutter engine does not render zero-width spaces with actual zero
       // width, so we need to split the tag into two parts: the leading space
       // markers and the actual tag text, while applying a zero letter spacing
@@ -203,6 +246,7 @@ class TagTextEditingController<T> extends TextEditingController {
 
     final textAfterAllTags = text.substring(position, text.length);
     textSpanChildren.add(TextSpan(text: textAfterAllTags));
+
     return TextSpan(style: style, children: textSpanChildren);
   }
 
@@ -221,9 +265,7 @@ class TagTextEditingController<T> extends TextEditingController {
 
     if (isCollapsed) {
       // Check if the cursor is inside a tag
-      final matchWithCursor = _getTagMatches(text)
-          .where((match) => match.start <= baseOffset && match.end > baseOffset)
-          .firstOrNull;
+      final matchWithCursor = _getTagMatches(text).where((match) => match.start <= baseOffset && match.end > baseOffset).firstOrNull;
 
       if (matchWithCursor == null) {
         // The cursor is not inside a tag.
@@ -237,9 +279,7 @@ class TagTextEditingController<T> extends TextEditingController {
         // This is not flawless, as the user could have moved into the tag
         // by some other means, but this is the most common case.
         selection = TextSelection.collapsed(
-          offset: (baseOffset - _previousCursorPosition) == 1
-              ? matchWithCursor.end
-              : matchWithCursor.start,
+          offset: (baseOffset - _previousCursorPosition) == 1 ? matchWithCursor.end : matchWithCursor.start,
         );
         return;
       }
@@ -253,24 +293,14 @@ class TagTextEditingController<T> extends TextEditingController {
         return;
       }
 
-      final lengthDifference =
-          (matchText.length - toFrontendConverter(taggable).length)
-              .clamp(0, matchText.length);
+      final lengthDifference = (matchText.length - toFrontendConverter(taggable).length).clamp(0, matchText.length);
       selection = TextSelection.collapsed(
-        offset: baseOffset - lengthDifference - matchWithCursor.start <
-                matchWithCursor.end - baseOffset
-            ? matchWithCursor.start
-            : matchWithCursor.end,
+        offset: baseOffset - lengthDifference - matchWithCursor.start < matchWithCursor.end - baseOffset ? matchWithCursor.start : matchWithCursor.end,
       );
     } else {
       // Check if the selection covers a tag
-      final matchWithBase = _getTagMatches(text)
-          .where((match) => match.start < baseOffset && match.end > baseOffset)
-          .firstOrNull;
-      final matchWithExtent = _getTagMatches(text)
-          .where(
-              (match) => match.start < extentOffset && match.end > extentOffset)
-          .firstOrNull;
+      final matchWithBase = _getTagMatches(text).where((match) => match.start < baseOffset && match.end > baseOffset).firstOrNull;
+      final matchWithExtent = _getTagMatches(text).where((match) => match.start < extentOffset && match.end > extentOffset).firstOrNull;
       final baseBeforeExtent = baseOffset < extentOffset;
 
       if (matchWithBase == null && matchWithExtent == null) {
@@ -279,12 +309,8 @@ class TagTextEditingController<T> extends TextEditingController {
       }
       // The selection covers a tag. Select the tag as a whole.
       selection = TextSelection(
-        baseOffset: baseBeforeExtent
-            ? matchWithBase?.start ?? baseOffset
-            : matchWithBase?.end ?? baseOffset,
-        extentOffset: baseBeforeExtent
-            ? matchWithExtent?.end ?? extentOffset
-            : 1 + (matchWithExtent?.start ?? (extentOffset - 1)),
+        baseOffset: baseBeforeExtent ? matchWithBase?.start ?? baseOffset : matchWithBase?.end ?? baseOffset,
+        extentOffset: baseBeforeExtent ? matchWithExtent?.end ?? extentOffset : 1 + (matchWithExtent?.start ?? (extentOffset - 1)),
       );
     }
   }
@@ -324,20 +350,18 @@ class TagTextEditingController<T> extends TextEditingController {
     // First, check for tags that are still detected but not valid
     for (final match in _getTagMatches(text)) {
       // If the match can be parsed as a tag, it is valid
-      if (_parseTagString(match.group(0)!) != null) continue;
+      if (_parseTagString(match.group(0)!) != null) {
+        continue;
+      }
 
       // The tag is not recognisable, so it is invalid
       // Check if the match is a superstring of a valid tag
-      final originalTag = _tagBackendFormatsToTaggables.keys
-          .where((key) => match.group(0)!.contains(key))
-          .firstOrNull;
-
+      final originalTag = _tagBackendFormatsToTaggables.keys.where((key) => match.group(0)!.contains(key)).firstOrNull;
       if (originalTag == null) {
         // The tag is not a superstring of a valid tag, nor is it a valid tag
         // It is still detected by the regular expression, so it must have been
         // trimmed at the end. Check if it is a valid tag without the last char
-        final missesFinalCharacter = _tagBackendFormatsToTaggables.keys
-            .any((key) => key.substring(0, key.length - 1) == match.group(0));
+        final missesFinalCharacter = _tagBackendFormatsToTaggables.keys.any((key) => key.substring(0, key.length - 1) == match.group(0));
         // If the final character is missing, remove the tag.
         // Otherwise, the user is probably still typing the tag.
         if (missesFinalCharacter) {
@@ -348,10 +372,9 @@ class TagTextEditingController<T> extends TextEditingController {
         }
         continue;
       }
+
       final taggable = _tagBackendFormatsToTaggables[originalTag] as T;
-      final tagStyle = tagStyles
-          .where((style) => originalTag.startsWith(style.prefix))
-          .first;
+      final tagStyle = tagStyles.where((style) => originalTag.startsWith(style.prefix)).first;
       final tagFrontendFormat = toFrontendConverter(taggable);
       final replacement = tagStyle.prefix + tagFrontendFormat;
 
@@ -360,11 +383,11 @@ class TagTextEditingController<T> extends TextEditingController {
       value = TextEditingValue(
         text: text.replaceFirst(originalTag, replacement, match.start),
         selection: TextSelection.collapsed(
-          offset:
-              selection.baseOffset - originalTag.length + replacement.length,
+          offset: selection.baseOffset - originalTag.length + replacement.length,
         ),
       );
     }
+
     // Next, check for tags that have been broken by trimming at the start
     // For these tags, the prefix is missing its first character
     final brokenTags = _tagBackendFormatsToTaggables.keys.expand((key) {
@@ -374,6 +397,7 @@ class TagTextEditingController<T> extends TextEditingController {
       final pattern = '(?<!${key.substring(0, 1)})${key.substring(1)}';
       return RegExp(pattern).allMatches(text);
     });
+
     for (final brokenTag in brokenTags) {
       // Remove the entire tag. The selection can remain the same.
       value = TextEditingValue(
@@ -393,7 +417,7 @@ class TagTextEditingController<T> extends TextEditingController {
     final taggables = searchTaggables(prefix, prompt);
     buildTaggables(taggables).then((taggable) {
       if (prefix != null && prompt != null && taggable != null) {
-        insertTaggable(prefix, taggable, prompt.length + prefix.length);
+        _insertTaggable(prefix, taggable, prompt.length + prefix.length);
       }
     });
   }
@@ -402,7 +426,7 @@ class TagTextEditingController<T> extends TextEditingController {
   ///
   /// Insertion typically replaces any tag prompt with the taggable. The number
   /// of characters to replace is given by [charactersToReplace].
-  void insertTaggable(String prefix, T taggable, int charactersToReplace) {
+  void _insertTaggable(String prefix, T taggable, int charactersToReplace) {
     final tagStyle = tagStyles.where((style) => prefix == style.prefix).first;
     final tag = Tag<T>(taggable: taggable, style: tagStyle);
     final tagText = tag.toModifiedString(
