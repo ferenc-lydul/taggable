@@ -141,6 +141,7 @@ class TagTextEditingController<T> extends TextEditingController {
   void setText(
     String backendText,
     FutureOr<T?> Function(String prefix, String backendString) backendToTaggable,
+    FutureOr<String?> Function(String prefix, String backendString) backendToFallback,
   ) async {
     _tagBackendFormatsToTaggables.clear();
 
@@ -160,7 +161,8 @@ class TagTextEditingController<T> extends TextEditingController {
 
       final taggable = await backendToTaggable(tagStyle.prefix, match.group(0)!.substring(tagStyle.prefix.length));
       if (taggable == null) {
-        tmpText.write(match.group(0));
+        final fallback = await backendToFallback(tagStyle.prefix, match.group(0)!.substring(tagStyle.prefix.length));
+        tmpText.write(fallback ?? match.group(0));
         continue;
       }
 

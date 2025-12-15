@@ -305,8 +305,9 @@ class _HomePageState extends State<HomePage> {
                 onPressed: () {
                   // This is an example of setting the initial text.
                   _controller.setText(
-                    "Hello @aliceUniqueId and welcome to #myFlutterId",
+                    "Hello @aliceUniqueId and @frankUniqueId, welcome to #myFlutterId!",
                     backendToTaggable,
+                    (prefix, backendString) => '${prefix}Unknown',
                   );
                 },
                 child: const Text('Set initial text'),
