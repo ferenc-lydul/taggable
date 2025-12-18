@@ -130,7 +130,8 @@ class _HomePageState extends State<HomePage> {
       backendFormat,
       tagStyles: _controller.tagStyles,
       backendToTaggable: backendToTaggable,
-      taggableToInlineSpan: (taggable, tagStyle) {
+      backendToFallback: (prefix, backendString) => '${prefix}Unknown',
+      taggableToInlineSpan: (tagStyle, taggable) {
         return TextSpan(
           text: '${tagStyle.prefix}${taggable.name}',
           style: textStyleBuilder(context, tagStyle.prefix, taggable),

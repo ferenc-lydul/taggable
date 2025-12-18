@@ -41,7 +41,8 @@ Future<List<InlineSpan>> convertTagTextToInlineSpans<T>(
   String text, {
   required List<TagStyle> tagStyles,
   required FutureOr<T?> Function(String prefix, String backendString) backendToTaggable,
-  required InlineSpan Function(T taggable, TagStyle tagStyle) taggableToInlineSpan,
+  required FutureOr<String?> Function(String prefix, String backendString) backendToFallback,
+  required InlineSpan Function(TagStyle tagStyle, T taggable) taggableToInlineSpan,
 }) async {
   final pattern = tagStyles.map((style) => '${RegExp.escape(style.prefix)}(${style.regExp})').join('|');
   final spans = <InlineSpan>[];
@@ -61,9 +62,10 @@ Future<List<InlineSpan>> convertTagTextToInlineSpans<T>(
     );
 
     if (taggable != null) {
-      spans.add(taggableToInlineSpan(taggable, tagStyle));
+      spans.add(taggableToInlineSpan(tagStyle, taggable));
     } else {
-      spans.add(TextSpan(text: match.group(0)));
+      final fallback = await backendToFallback(tagStyle.prefix, match.group(0)!.substring(tagStyle.prefix.length));
+      spans.add(TextSpan(text: fallback ?? match.group(0)));
     }
   }
 
